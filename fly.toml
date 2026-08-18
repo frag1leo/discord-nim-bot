@@ -1,0 +1,17 @@
+# Fly.io app config for the Discord NIM bot.
+# This bot has no HTTP server (it holds an outbound Discord gateway
+# WebSocket), so there is deliberately NO [http_service] / [[services]]
+# block — Fly would otherwise expect something listening on a port and
+# health-check it, which doesn't apply here.
+
+app = "discord-nim-bot"          # change to a unique name, or let `fly launch` assign one
+primary_region = "sin"           # Singapore — closest region to Vietnam; change if you prefer another
+
+[build]
+
+[processes]
+  app = "python bot.py"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
