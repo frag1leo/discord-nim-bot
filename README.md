@@ -22,8 +22,14 @@ process (no HTTP server — it holds an outbound Discord gateway connection).
 - https://discord.com/developers/applications → New Application
 - Bot tab → Reset Token → copy it (this is `DISCORD_BOT_TOKEN`)
 - Enable "Message Content Intent" under Privileged Gateway Intents
-- OAuth2 → URL Generator → scope `bot` → permissions: Send Messages,
-  Read Message History → open the generated URL to invite it to your server
+- OAuth2 → URL Generator → scopes `bot` AND `applications.commands` (the
+  second one is required for slash commands like `/poll` to show up) →
+  permissions: Send Messages, Read Message History, Add Reactions → open
+  the generated URL to invite it to your server
+
+  If the bot was already invited before adding `applications.commands`,
+  redo this step and re-invite it (re-authorizing adds the missing scope
+  without creating a duplicate bot).
 
 ## 2. Get a NIM API key
 
@@ -72,6 +78,7 @@ In the Railway dashboard → your service → **Variables** tab, add:
 | `NIM_BASE_URL` | `https://integrate.api.nvidia.com/v1` |
 | `NIM_MODEL` | `nvidia/nemotron-3-super-120b-a12b` (or another tool-calling model) |
 | `REQUIRE_MENTION` | `true` |
+| `DEV_GUILD_ID` | *(optional)* your test server's ID — makes slash commands sync instantly instead of up to an hour |
 
 (Or via CLI: `railway variables set DISCORD_BOT_TOKEN=... NIM_API_KEY=...` etc.)
 
@@ -99,6 +106,31 @@ process — no port needs to be exposed, and this repo doesn't declare one.
    result is fed back to the model — this loops until the model gives a
    final text answer (capped at `MAX_TOOL_ITERATIONS` to avoid runaway loops)
 4. The final answer is sent back to the Discord channel
+
+## Slash commands
+
+- `/poll question:<text> options:<a | b | c>` — reaction poll, up to 10 options
+  separated by `|`
+- `/vote` — same as `/poll`, just an alias
+- `/yesno question:<text>` — quick ✅/❌ poll, no options needed
+
+Commands live in `commands.py`. First deploy after this feature: without
+`DEV_GUILD_ID` set, Discord can take up to an hour to show new slash
+commands globally — set `DEV_GUILD_ID` to your test server's ID (see
+`.env.example`) while iterating for instant sync, then unset it (or leave
+it) once you're happy — global sync still runs fine alongside guild sync.
+
+### Adding a new slash command
+
+In `commands.py`, inside `setup_commands(tree)`, add:
+```python
+@tree.command(name="mycommand", description="What it does")
+@app_commands.describe(arg="What this argument is for")
+async def mycommand(interaction: discord.Interaction, arg: str):
+    await interaction.response.send_message(f"You said: {arg}")
+```
+No extra wiring needed — `bot.py` already calls `setup_commands(bot.tree)`
+and syncs on startup.
 
 ## Adding a new tool
 
